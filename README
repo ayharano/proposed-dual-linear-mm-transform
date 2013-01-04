@@ -1,0 +1,41 @@
+Copyright 2012 Alexandre Yukio Harano
+
+Licensed under the ImageMagick License (the "License"); you may not use
+this file except in compliance with the License.  You may obtain a copy
+of the License at
+
+  http://www.imagemagick.org/script/license.php
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+License for the specific language governing permissions and limitations
+under the License.
+
+This code was used in the experimental procedure of the following
+M.Sc. dissertation:
+"""
+Efficient Implementation of Morphological Operators
+using Preprocessing Techniques
+"""
+
+Author: Alexandre Yukio Harano <ayharano AT ime DOT usp DOT br>
+
+Instructions:
+
+There are two modes of making the binaries:
+
+1) make [mode=debug]
+2) make mode=release
+
+Mode (1) is the default mode and its execution is very slow,
+because the code tests the iteration data after each major step for
+each chosen algorithm.
+
+Mode (2) is the right one if just the resulting image, or its timing,
+is needed.
+
+To clean the generated binaries of each case, use the following commands:
+
+1) make [mode=debug] clean
+2) make mode=release clean
