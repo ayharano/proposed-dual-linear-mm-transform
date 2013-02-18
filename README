@@ -16,7 +16,7 @@ This code was used in the experimental procedure of the following
 M.Sc. dissertation:
 """
 A New Approach for Erosion Transform and Dilation Transform Operators
-using a Sparse Matrix
+by using a Structuring Element Decomposition
 """
 
 Author: Alexandre Yukio Harano <ayharano AT ime DOT usp DOT br>
