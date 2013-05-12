@@ -31,27 +31,46 @@ namespace binary {
 namespace morphology {
 
 
-class Border : public DualOperation {
+class BorderDilation : public DilationTransform {
  public:
-  Border(const bool debug, std::ostream &debug_output)
-      : DualOperation(true, true, debug, debug_output) {}
-  virtual ~Border() {}
+  BorderDilation(const bool debug, std::ostream &debug_output)
+      : DilationTransform(true, true, debug, debug_output) {}
+  virtual ~BorderDilation() {}
  protected:
   virtual bool DetectBorder(
-      const bool true_for_erosion,
       const imaging::SEIndex current_se_index,
       const std::vector<imaging::ImagePositionIndex> &current_se_indexes);
   virtual bool InitialCandidatePositionFound(
-      const bool true_for_erosion,
       const imaging::binary::Image &image,
       const imaging::ImagePositionIndex &image_position,
       const imaging::Position &value);
-  virtual bool InsertNewCandidateFromBorder(const bool true_for_erosion,
+  virtual bool InsertNewCandidateFromBorder(
       imaging::grayscale::Image **output_image);
  private:
-  Border() : DualOperation(true, true, false, std::cout) {}
-  DISALLOW_COPY_AND_ASSIGN(Border);
-}; // imaging:::binary::morphology::Border
+  BorderDilation() : DilationTransform(true, true, false, std::cout) {}
+  DISALLOW_COPY_AND_ASSIGN(BorderDilation);
+}; // imaging:::binary::morphology::BorderDilation
+
+
+class BorderErosion : public ErosionTransform {
+ public:
+  BorderErosion(const bool debug, std::ostream &debug_output)
+      : ErosionTransform(true, true, debug, debug_output) {}
+  virtual ~BorderErosion() {}
+ protected:
+  virtual bool DetectBorder(
+      const imaging::SEIndex current_se_index,
+      const std::vector<imaging::ImagePositionIndex> &current_se_indexes);
+  virtual bool InitialCandidatePositionFound(
+      const imaging::binary::Image &image,
+      const imaging::ImagePositionIndex &image_position,
+      const imaging::Position &value);
+  virtual bool InsertNewCandidateFromBorder(
+      imaging::grayscale::Image **output_image);
+ private:
+  BorderErosion() : ErosionTransform(true, true, false, std::cout) {}
+  DISALLOW_COPY_AND_ASSIGN(BorderErosion);
+}; // imaging:::binary::morphology::BorderErosion
 
 
 } // namespace imaging::binary::morphology

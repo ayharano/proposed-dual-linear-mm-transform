@@ -1715,13 +1715,13 @@ bool imaging::binary::Image::Union(
   return ok_so_far;
 }
 
-// imaging::binary::morphology::DualOperation
+// imaging::binary::morphology::Transform
 
-imaging::binary::morphology::DualOperation::~DualOperation() {
-  DualOperation::clear();
+imaging::binary::morphology::Transform::~Transform() {
+  Transform::clear();
 }
 
-bool imaging::binary::morphology::DualOperation::DilationTransform(
+bool imaging::binary::morphology::Transform::Calculate(
     const imaging::binary::Image &image,
     const std::vector<imaging::binary::StructuringElement*> &se,
     imaging::grayscale::Image **output,
@@ -1739,45 +1739,226 @@ bool imaging::binary::morphology::DualOperation::DilationTransform(
         *algorithm_number_of_elements_in_border,
     double *start,
     double *end) {
-  return Operation(false, image, se, output,
-      algorithm_determinate_border_comparison_counter,
-      algorithm_insert_new_candidate_comparison_counter,
-      algorithm_insert_new_candidate_memory_access_counter,
-      algorithm_remove_candidate_comparison_counter,
-      algorithm_remove_candidate_memory_access_counter,
-      algorithm_number_of_elements_in_border,
-      start, end);
+  if (output == NULL
+      || algorithm_determinate_border_comparison_counter == NULL
+      || algorithm_insert_new_candidate_comparison_counter == NULL
+      || algorithm_insert_new_candidate_memory_access_counter == NULL
+      || algorithm_remove_candidate_comparison_counter == NULL
+      || algorithm_remove_candidate_memory_access_counter == NULL
+      || algorithm_number_of_elements_in_border == NULL
+      || start == NULL || end == NULL)
+    return false;
+  if (*output != NULL) return false;
+  const size_t empty = 0;
+  bool ok_so_far = true;
+  std::vector< std::vector<imaging::Position> > vectorized_se;
+  // Clear the instance data.
+  this->clear();
+  // Set current algorithm counter data.
+  if (algorithm_determinate_border_comparison_counter->size() != empty
+      || algorithm_insert_new_candidate_comparison_counter->size() != empty
+      || algorithm_insert_new_candidate_memory_access_counter->size() != empty
+      || algorithm_remove_candidate_comparison_counter->size() != empty
+      || algorithm_remove_candidate_memory_access_counter->size() != empty
+      || algorithm_number_of_elements_in_border->size() != empty)
+    return false;
+  algorithm_determinate_border_comparison_counter_ =
+      algorithm_determinate_border_comparison_counter;
+  algorithm_insert_new_candidate_comparison_counter_ =
+      algorithm_insert_new_candidate_comparison_counter;
+  algorithm_insert_new_candidate_memory_access_counter_ =
+      algorithm_insert_new_candidate_memory_access_counter;
+  algorithm_remove_candidate_comparison_counter_ =
+      algorithm_remove_candidate_comparison_counter;
+  algorithm_remove_candidate_memory_access_counter_ =
+      algorithm_remove_candidate_memory_access_counter;
+  algorithm_number_of_elements_in_border_ =
+      algorithm_number_of_elements_in_border;
+  // Initialize candidate matrix.
+  if (use_candidate_matrix_) {
+    using namespace imaging;
+    using namespace imaging::grayscale::_internal;
+    candidate_matrix_ =
+        new NumericalMatrix<ImagePositionIndex>(image.size(), imaging::HEADER);
+    if (candidate_matrix_ == NULL) return false;
+  }
+  // Initialize temporary image.
+  Y_ = new imaging::binary::Image(image);
+  if (Y_ == NULL) return false;
+  // Initialize transitional output image.
+  ok_so_far = ::InitializeAlgorithmsOutputImage(image, output);
+  if (!ok_so_far) return ok_so_far;
+  // Vectorize SEs.
+  ok_so_far = ::VectorizeSEs(se, &vectorized_se);
+  if (!ok_so_far) return ok_so_far;
+  // Start!
+  gettimeofday(&(::timer), NULL);
+  *start = (::timer).tv_sec*1000000.+(::timer).tv_usec;
+  // Initialize SE data.
+  ok_so_far = InitializeSEData(vectorized_se);
+  if (!ok_so_far) return ok_so_far;
+  // Initialize algorithm memory and comparison counters.
+  ok_so_far = InitializeCounters();
+  if (!ok_so_far) return ok_so_far;
+  // Initialize according to chosen algorithm.
+  ok_so_far = this->CustomInitialize();
+  if (!ok_so_far) return ok_so_far;
+  // Initialize candidate data.
+  ok_so_far = InitializeCandidateData(image);
+  if (!ok_so_far) return ok_so_far;
+  // Actual algorithm!
+  border_.resize(candidate_position_.size(), imaging::HEADER);
+  ok_so_far = this->ActualAlgorithm(output);
+  if (!ok_so_far) return ok_so_far;
+  if (debug_) {
+    debug_output_ << "\tAfter actual algorithm:\n";
+    ok_so_far = this->Debug();
+    if (!ok_so_far) return ok_so_far;
+    debug_output_ << "\n";
+  }
+  // Finally!
+  gettimeofday(&(::timer), NULL);
+  *end = (::timer).tv_sec*1000000.+(::timer).tv_usec;
+  // Clear the instance data.
+  this->clear();
+  return ok_so_far;
 }
 
-bool imaging::binary::morphology::DualOperation::ErosionTransform(
-    const imaging::binary::Image &image,
-    const std::vector<imaging::binary::StructuringElement*> &se,
-    imaging::grayscale::Image **output,
-    std::vector<imaging::ImagePositionIndex>
-        *algorithm_determinate_border_comparison_counter,
-    std::vector<imaging::ImagePositionIndex>
-        *algorithm_insert_new_candidate_comparison_counter,
-    std::vector<imaging::ImagePositionIndex>
-        *algorithm_insert_new_candidate_memory_access_counter,
-    std::vector<imaging::ImagePositionIndex>
-        *algorithm_remove_candidate_comparison_counter,
-    std::vector<imaging::ImagePositionIndex>
-        *algorithm_remove_candidate_memory_access_counter,
-    std::vector<imaging::ImagePositionIndex>
-        *algorithm_number_of_elements_in_border,
-    double *start,
-    double *end) {
-  return Operation(true, image, se, output,
-      algorithm_determinate_border_comparison_counter,
-      algorithm_insert_new_candidate_comparison_counter,
-      algorithm_insert_new_candidate_memory_access_counter,
-      algorithm_remove_candidate_comparison_counter,
-      algorithm_remove_candidate_memory_access_counter,
-      algorithm_number_of_elements_in_border,
-      start, end);
+bool imaging::binary::morphology::Transform::ActualAlgorithm(
+    imaging::grayscale::Image **output_image) {
+  imaging::ImagePositionIndex current = 0;
+  imaging::SEIndex current_se = 0;
+  imaging::SEIndex current_se_index = 0;
+  imaging::ImagePositionIndex current_se_index_element = 0;
+  imaging::ImagePositionIndex i = 0;
+  const imaging::ImagePositionIndex initial_counter_value = 0;
+  imaging::SEIndex not_done = 0;
+  bool ok_so_far = true;
+  const imaging::SEIndex number_of_se = se_elements_.size();
+  std::vector< imaging::SEIndex > se_index;
+  std::vector< std::vector<imaging::ImagePositionIndex> > shuffled_indexes;
+  // Setting up SE element index shuffler's data.
+  for (current_se = 0; ok_so_far && current_se < number_of_se; ++current_se) {
+    std::vector<imaging::ImagePositionIndex> current_se_indexes;
+    const imaging::ImagePositionIndex current_cardinality =
+          se_cardinality_.at(current_se);
+    for (current_se_index = 0; current_se_index < current_cardinality;
+        ++current_se_index) {
+      current_se_indexes.push_back(current_se_index);
+    }
+    shuffled_indexes.push_back(current_se_indexes);
+    se_index.push_back(current_se);
+  }
+  // Transform itself.
+  se_iteration_ = 0;
+  not_done = 0;
+  current = candidate_next_.at(imaging::HEADER);
+  while (ok_so_far && current != imaging::HEADER && not_done < number_of_se) {
+    // Insert current iteration counter data value.
+    algorithm_determinate_border_comparison_counter_->push_back(
+        initial_counter_value);
+    algorithm_insert_new_candidate_comparison_counter_->push_back(
+        initial_counter_value);
+    algorithm_insert_new_candidate_memory_access_counter_->push_back(
+        initial_counter_value);
+    algorithm_remove_candidate_comparison_counter_->push_back(
+        initial_counter_value);
+    algorithm_remove_candidate_memory_access_counter_->push_back(
+        initial_counter_value);
+    algorithm_number_of_elements_in_border_->push_back(
+        initial_counter_value);
+    // Set up data with current values.
+    ++se_iteration_;
+    ok_so_far = shuffle(&se_index); // shuffle SE sequence
+    not_done = 0;
+    if (debug_) {
+      debug_output_ << "\tBefore running iteration " << se_iteration_ << ":\n";
+      debug_output_ << "\n\tSE sequence: [ ";
+      for (current_se = 0; current_se < number_of_se; ++current_se) {
+        debug_output_ << se_index.at(current_se);
+        if (current_se != number_of_se-1) debug_output_ << ",";
+        debug_output_ << " ";
+      }
+      debug_output_ << "]\n\n";
+      this->Debug();
+      debug_output_ << "\n";
+    }
+    for (current_se = 0;
+        ok_so_far && current != imaging::HEADER && current_se < number_of_se;
+        ++current_se) {
+      border_counter_ = 0;
+      current_se_index = se_index.at(current_se);
+      border_counter_ = 0;
+      // Determinate which candidates belongs to current border.
+      ok_so_far = shuffle(&(shuffled_indexes.at(current_se_index)));
+      if (!ok_so_far) continue;
+      if (debug_) {
+        const imaging::ImagePositionIndex se_cardinality
+            = se_cardinality_.at(current_se_index);
+        const std::vector<imaging::ImagePositionIndex> &se_elements
+            = shuffled_indexes.at(current_se_index);
+        debug_output_ << "\tSE current_se_index " << current_se_index
+            << " [" << current_se+1 << "/" << number_of_se
+            << "] elements sequence: [ ";
+        for (current_se_index_element = 0;
+            current_se_index_element < se_cardinality;
+            ++current_se_index_element) {
+          debug_output_ << se_elements.at(current_se_index_element);
+          if (current_se_index_element != se_cardinality-1)
+            debug_output_ << ",";
+          debug_output_ << " ";
+        }
+        debug_output_ << "]\n\n";
+      }
+      ok_so_far = DetectBorder(current_se_index,
+          shuffled_indexes.at(current_se_index));
+      if (!ok_so_far) continue;
+      if (debug_) {
+        debug_output_ << "\tAfter determinating border [" << current_se+1
+            << "/" << number_of_se << "]:\n";
+        this->Debug();
+        debug_output_ << "\n";
+      }
+      // Remove border pixels.
+      for (i = 0; ok_so_far && i < border_counter_; ++i) {
+        const imaging::Position &p = candidate_position_.at(border_.at(i));
+        ok_so_far = Y_->set_value(p, !true_for_erosion_);
+        if (!ok_so_far) continue;
+        if (regular_removal_) {
+          ok_so_far = RemoveCandidateNode(border_.at(i));
+          if (!ok_so_far) continue;
+        }
+        algorithm_remove_candidate_memory_access_counter_->at(se_iteration_)
+            += 1;
+        ok_so_far = (*output_image)->set_value(p, se_iteration_);
+        if (!ok_so_far) continue;
+      }
+      if (!ok_so_far) continue;
+      // Insert new candidate pixels into candidate queue.
+      ok_so_far = this->InsertNewCandidateFromBorder(output_image);
+      if (!ok_so_far) continue;
+      // Verifies if operation was possible for the original SE.
+      if (border_counter_ == 0) {
+        ++not_done;
+      } else {
+        not_done = 0;
+      }
+      algorithm_number_of_elements_in_border_->at(se_iteration_)
+          += border_counter_;
+      border_counter_ = 0; // setting zero for debug info
+      if (debug_) {
+        debug_output_ << "\tAfter removing border and inserting new candidates ["
+            << current_se+1 << "/" << number_of_se << "]:\n";
+        this->Debug();
+        debug_output_ << "\n";
+      }
+      current = candidate_next_.at(imaging::HEADER);
+    }
+  }
+  return ok_so_far;
 }
 
-bool imaging::binary::morphology::DualOperation::clear() {
+bool imaging::binary::morphology::Transform::clear() {
   // Clear the instance data.
   algorithm_determinate_border_comparison_counter_ = NULL;
   algorithm_insert_new_candidate_comparison_counter_ = NULL;
@@ -1805,11 +1986,11 @@ bool imaging::binary::morphology::DualOperation::clear() {
   return true;
 }
 
-bool imaging::binary::morphology::DualOperation::CustomInitialize() {
+bool imaging::binary::morphology::Transform::CustomInitialize() {
   return true;
 }
 
-bool imaging::binary::morphology::DualOperation::Debug() {
+bool imaging::binary::morphology::Transform::Debug() {
   imaging::ImagePositionIndex counter = 0;
   imaging::ImagePositionIndex current = 0;
   imaging::ImagePositionIndex current_size = 0;
@@ -1956,7 +2137,7 @@ bool imaging::binary::morphology::DualOperation::Debug() {
   return true;
 }
 
-bool imaging::binary::morphology::DualOperation::EnqueueCandidateNode(
+bool imaging::binary::morphology::Transform::EnqueueCandidateNode(
     const imaging::ImagePositionIndex &image_position) {
   const imaging::ImagePositionIndex previous = candidate_previous_.at(
       imaging::HEADER);
@@ -1974,179 +2155,7 @@ bool imaging::binary::morphology::DualOperation::EnqueueCandidateNode(
   return true;
 }
 
-bool imaging::binary::morphology::DualOperation::position(
-    const imaging::Position &image_position,
-    imaging::ImagePositionIndex *value) const {
-  if (!use_candidate_matrix_ || value == NULL) return false;
-  return candidate_matrix_->value(image_position, value);
-}
-
-bool imaging::binary::morphology::DualOperation::position(
-    const imaging::ImagePositionIndex &position_index,
-    imaging::Position *value) const {
-  if (value == NULL) return false;
-  return value->CopyFrom(candidate_position_.at(position_index));
-}
-
-bool imaging::binary::morphology::DualOperation::RemoveCandidateNode(
-    const imaging::ImagePositionIndex &image_position) {
-  if (image_position == imaging::HEADER) return false;
-  if (!candidate_initialized_.at(image_position)) return false;
-  const imaging::ImagePositionIndex next = candidate_next_.at(image_position);
-  const imaging::ImagePositionIndex previous =
-      candidate_previous_.at(image_position);
-  algorithm_remove_candidate_memory_access_counter_->at(se_iteration_) += 4;
-  candidate_next_.at(previous) = next;
-  candidate_previous_.at(next) = previous;
-  candidate_next_.at(image_position) = image_position;
-  candidate_previous_.at(image_position) = image_position;
-  return true;
-}
-
-imaging::SEIndex imaging::binary::morphology::DualOperation::u_cardinality()
-    const {
-  return static_cast<imaging::SEIndex>(u_elements_.size());
-}
-
-
-bool imaging::binary::morphology::DualOperation::ActualAlgorithm(
-    const bool true_for_erosion,
-    imaging::grayscale::Image **output_image) {
-  imaging::ImagePositionIndex current = 0;
-  imaging::SEIndex current_se = 0;
-  imaging::SEIndex current_se_index = 0;
-  imaging::ImagePositionIndex current_se_index_element = 0;
-  imaging::ImagePositionIndex i = 0;
-  const imaging::ImagePositionIndex initial_counter_value = 0;
-  imaging::SEIndex not_done = 0;
-  bool ok_so_far = true;
-  const imaging::SEIndex number_of_se = se_elements_.size();
-  std::vector< imaging::SEIndex > se_index;
-  std::vector< std::vector<imaging::ImagePositionIndex> > shuffled_indexes;
-  // Setting up SE element index shuffler's data.
-  for (current_se = 0; ok_so_far && current_se < number_of_se; ++current_se) {
-    std::vector<imaging::ImagePositionIndex> current_se_indexes;
-    const imaging::ImagePositionIndex current_cardinality =
-          se_cardinality_.at(current_se);
-    for (current_se_index = 0; current_se_index < current_cardinality;
-        ++current_se_index) {
-      current_se_indexes.push_back(current_se_index);
-    }
-    shuffled_indexes.push_back(current_se_indexes);
-    se_index.push_back(current_se);
-  }
-  // Transform itself.
-  se_iteration_ = 0;
-  not_done = 0;
-  current = candidate_next_.at(imaging::HEADER);
-  while (ok_so_far && current != imaging::HEADER && not_done < number_of_se) {
-    // Insert current iteration counter data value.
-    algorithm_determinate_border_comparison_counter_->push_back(
-        initial_counter_value);
-    algorithm_insert_new_candidate_comparison_counter_->push_back(
-        initial_counter_value);
-    algorithm_insert_new_candidate_memory_access_counter_->push_back(
-        initial_counter_value);
-    algorithm_remove_candidate_comparison_counter_->push_back(
-        initial_counter_value);
-    algorithm_remove_candidate_memory_access_counter_->push_back(
-        initial_counter_value);
-    algorithm_number_of_elements_in_border_->push_back(
-        initial_counter_value);
-    // Set up data with current values.
-    ++se_iteration_;
-    ok_so_far = shuffle(&se_index); // shuffle SE sequence
-    not_done = 0;
-    if (debug_) {
-      debug_output_ << "\tBefore running iteration " << se_iteration_ << ":\n";
-      debug_output_ << "\n\tSE sequence: [ ";
-      for (current_se = 0; current_se < number_of_se; ++current_se) {
-        debug_output_ << se_index.at(current_se);
-        if (current_se != number_of_se-1) debug_output_ << ",";
-        debug_output_ << " ";
-      }
-      debug_output_ << "]\n\n";
-      this->Debug();
-      debug_output_ << "\n";
-    }
-    for (current_se = 0;
-        ok_so_far && current != imaging::HEADER && current_se < number_of_se;
-        ++current_se) {
-      border_counter_ = 0;
-      current_se_index = se_index.at(current_se);
-      border_counter_ = 0;
-      // Determinate which candidates belongs to current border.
-      ok_so_far = shuffle(&(shuffled_indexes.at(current_se_index)));
-      if (!ok_so_far) continue;
-      if (debug_) {
-        const imaging::ImagePositionIndex se_cardinality
-            = se_cardinality_.at(current_se_index);
-        const std::vector<imaging::ImagePositionIndex> &se_elements
-            = shuffled_indexes.at(current_se_index);
-        debug_output_ << "\tSE current_se_index " << current_se_index
-            << " [" << current_se+1 << "/" << number_of_se
-            << "] elements sequence: [ ";
-        for (current_se_index_element = 0;
-            current_se_index_element < se_cardinality;
-            ++current_se_index_element) {
-          debug_output_ << se_elements.at(current_se_index_element);
-          if (current_se_index_element != se_cardinality-1)
-            debug_output_ << ",";
-          debug_output_ << " ";
-        }
-        debug_output_ << "]\n\n";
-      }
-      ok_so_far = DetectBorder(true_for_erosion, current_se_index,
-          shuffled_indexes.at(current_se_index));
-      if (!ok_so_far) continue;
-      if (debug_) {
-        debug_output_ << "\tAfter determinating border [" << current_se+1
-            << "/" << number_of_se << "]:\n";
-        this->Debug();
-        debug_output_ << "\n";
-      }
-      // Remove border pixels.
-      for (i = 0; ok_so_far && i < border_counter_; ++i) {
-        const imaging::Position &p = candidate_position_.at(border_.at(i));
-        ok_so_far = Y_->set_value(p, !true_for_erosion);
-        if (!ok_so_far) continue;
-        if (regular_removal_) {
-          ok_so_far = RemoveCandidateNode(border_.at(i));
-          if (!ok_so_far) continue;
-        }
-        algorithm_remove_candidate_memory_access_counter_->at(se_iteration_)
-            += 1;
-        ok_so_far = (*output_image)->set_value(p, se_iteration_);
-        if (!ok_so_far) continue;
-      }
-      if (!ok_so_far) continue;
-      // Insert new candidate pixels into candidate queue.
-      ok_so_far = this->InsertNewCandidateFromBorder(true_for_erosion,
-          output_image);
-      if (!ok_so_far) continue;
-      // Verifies if operation was possible for the original SE.
-      if (border_counter_ == 0) {
-        ++not_done;
-      } else {
-        not_done = 0;
-      }
-      algorithm_number_of_elements_in_border_->at(se_iteration_)
-          += border_counter_;
-      border_counter_ = 0; // setting zero for debug info
-      if (debug_) {
-        debug_output_ << "\tAfter removing border and inserting new candidates ["
-            << current_se+1 << "/" << number_of_se << "]:\n";
-        this->Debug();
-        debug_output_ << "\n";
-      }
-      current = candidate_next_.at(imaging::HEADER);
-    }
-  }
-  return ok_so_far;
-}
-
-bool imaging::binary::morphology::DualOperation::InitializeCandidateData(
-    const bool true_for_erosion,
+bool imaging::binary::morphology::Transform::InitializeCandidateData(
     const imaging::binary::Image &image) {
   if (Y_ == NULL) return false;
   bool ok_so_far = true;
@@ -2169,7 +2178,7 @@ bool imaging::binary::morphology::DualOperation::InitializeCandidateData(
         += 5;
     ok_so_far = image.value(current, &position_value);
     if (!ok_so_far) continue;
-    if (position_value != true_for_erosion) continue;
+    if (position_value != true_for_erosion_) continue;
     ++position_counter;
     border_.push_back(imaging::HEADER);
     candidate_initialized_.push_back(false);
@@ -2183,7 +2192,7 @@ bool imaging::binary::morphology::DualOperation::InitializeCandidateData(
       if (!ok_so_far) continue;
     }
     ok_so_far = this->InitialCandidatePositionFound(
-        true_for_erosion, image, position_counter, current);
+        image, position_counter, current);
   } while (ok_so_far && iterator.iterate());
   if (!iterator.IsFinished()) ok_so_far = false;
   if (ok_so_far && debug_) {
@@ -2194,7 +2203,7 @@ bool imaging::binary::morphology::DualOperation::InitializeCandidateData(
   return ok_so_far;
 }
 
-bool imaging::binary::morphology::DualOperation::InitializeCounters() {
+bool imaging::binary::morphology::Transform::InitializeCounters() {
   const imaging::ImagePositionIndex initial_counter_value = 0;
   algorithm_determinate_border_comparison_counter_->push_back(
       initial_counter_value);
@@ -2211,8 +2220,7 @@ bool imaging::binary::morphology::DualOperation::InitializeCounters() {
   return true;
 }
 
-
-bool imaging::binary::morphology::DualOperation::InitializeSEData(
+bool imaging::binary::morphology::Transform::InitializeSEData(
     const std::vector< std::vector<imaging::Position> > &vectorized_se) {
   imaging::ImagePositionIndex i = 0;
   imaging::SEIndex i_se = 0;
@@ -2307,106 +2315,36 @@ bool imaging::binary::morphology::DualOperation::InitializeSEData(
   return ok_so_far;
 }
 
-bool imaging::binary::morphology::DualOperation::Operation(
-    const bool true_for_erosion,
-    const imaging::binary::Image &image,
-    const std::vector<imaging::binary::StructuringElement*> &se,
-    imaging::grayscale::Image **output,
-    std::vector<imaging::ImagePositionIndex>
-        *algorithm_determinate_border_comparison_counter,
-    std::vector<imaging::ImagePositionIndex>
-        *algorithm_insert_new_candidate_comparison_counter,
-    std::vector<imaging::ImagePositionIndex>
-        *algorithm_insert_new_candidate_memory_access_counter,
-    std::vector<imaging::ImagePositionIndex>
-        *algorithm_remove_candidate_comparison_counter,
-    std::vector<imaging::ImagePositionIndex>
-        *algorithm_remove_candidate_memory_access_counter,
-    std::vector<imaging::ImagePositionIndex>
-        *algorithm_number_of_elements_in_border,
-    double *start,
-    double *end) {
-  if (output == NULL
-      || algorithm_determinate_border_comparison_counter == NULL
-      || algorithm_insert_new_candidate_comparison_counter == NULL
-      || algorithm_insert_new_candidate_memory_access_counter == NULL
-      || algorithm_remove_candidate_comparison_counter == NULL
-      || algorithm_remove_candidate_memory_access_counter == NULL
-      || algorithm_number_of_elements_in_border == NULL
-      || start == NULL || end == NULL)
-    return false;
-  if (*output != NULL) return false;
-  const size_t empty = 0;
-  bool ok_so_far = true;
-  std::vector< std::vector<imaging::Position> > vectorized_se;
-  // Clear the instance data.
-  this->clear();
-  // Set current algorithm counter data.
-  if (algorithm_determinate_border_comparison_counter->size() != empty
-      || algorithm_insert_new_candidate_comparison_counter->size() != empty
-      || algorithm_insert_new_candidate_memory_access_counter->size() != empty
-      || algorithm_remove_candidate_comparison_counter->size() != empty
-      || algorithm_remove_candidate_memory_access_counter->size() != empty
-      || algorithm_number_of_elements_in_border->size() != empty)
-    return false;
-  algorithm_determinate_border_comparison_counter_ =
-      algorithm_determinate_border_comparison_counter;
-  algorithm_insert_new_candidate_comparison_counter_ =
-      algorithm_insert_new_candidate_comparison_counter;
-  algorithm_insert_new_candidate_memory_access_counter_ =
-      algorithm_insert_new_candidate_memory_access_counter;
-  algorithm_remove_candidate_comparison_counter_ =
-      algorithm_remove_candidate_comparison_counter;
-  algorithm_remove_candidate_memory_access_counter_ =
-      algorithm_remove_candidate_memory_access_counter;
-  algorithm_number_of_elements_in_border_ =
-      algorithm_number_of_elements_in_border;
-  // Initialize candidate matrix.
-  if (use_candidate_matrix_) {
-    using namespace imaging;
-    using namespace imaging::grayscale::_internal;
-    candidate_matrix_ =
-        new NumericalMatrix<ImagePositionIndex>(image.size(), imaging::HEADER);
-    if (candidate_matrix_ == NULL) return false;
-  }
-  // Initialize temporary image.
-  Y_ = new imaging::binary::Image(image);
-  if (Y_ == NULL) return false;
-  // Initialize transitional output image.
-  ok_so_far = ::InitializeAlgorithmsOutputImage(image, output);
-  if (!ok_so_far) return ok_so_far;
-  // Vectorize SEs.
-  ok_so_far = ::VectorizeSEs(se, &vectorized_se);
-  if (!ok_so_far) return ok_so_far;
-  // Start!
-  gettimeofday(&(::timer), NULL);
-  *start = (::timer).tv_sec*1000000.+(::timer).tv_usec;
-  // Initialize SE data.
-  ok_so_far = InitializeSEData(vectorized_se);
-  if (!ok_so_far) return ok_so_far;
-  // Initialize algorithm memory and comparison counters.
-  ok_so_far = InitializeCounters();
-  if (!ok_so_far) return ok_so_far;
-  // Initialize according to chosen algorithm.
-  ok_so_far = this->CustomInitialize();
-  if (!ok_so_far) return ok_so_far;
-  // Initialize candidate data.
-  ok_so_far = InitializeCandidateData(true_for_erosion, image);
-  if (!ok_so_far) return ok_so_far;
-  // Actual algorithm!
-  border_.resize(candidate_position_.size(), imaging::HEADER);
-  ok_so_far = this->ActualAlgorithm(true_for_erosion, output);
-  if (!ok_so_far) return ok_so_far;
-  if (debug_) {
-    debug_output_ << "\tAfter actual algorithm:\n";
-    ok_so_far = this->Debug();
-    if (!ok_so_far) return ok_so_far;
-    debug_output_ << "\n";
-  }
-  // Finally!
-  gettimeofday(&(::timer), NULL);
-  *end = (::timer).tv_sec*1000000.+(::timer).tv_usec;
-  // Clear the instance data.
-  this->clear();
-  return ok_so_far;
+bool imaging::binary::morphology::Transform::position(
+    const imaging::Position &image_position,
+    imaging::ImagePositionIndex *value) const {
+  if (!use_candidate_matrix_ || value == NULL) return false;
+  return candidate_matrix_->value(image_position, value);
+}
+
+bool imaging::binary::morphology::Transform::position(
+    const imaging::ImagePositionIndex &position_index,
+    imaging::Position *value) const {
+  if (value == NULL) return false;
+  return value->CopyFrom(candidate_position_.at(position_index));
+}
+
+bool imaging::binary::morphology::Transform::RemoveCandidateNode(
+    const imaging::ImagePositionIndex &image_position) {
+  if (image_position == imaging::HEADER) return false;
+  if (!candidate_initialized_.at(image_position)) return false;
+  const imaging::ImagePositionIndex next = candidate_next_.at(image_position);
+  const imaging::ImagePositionIndex previous =
+      candidate_previous_.at(image_position);
+  algorithm_remove_candidate_memory_access_counter_->at(se_iteration_) += 4;
+  candidate_next_.at(previous) = next;
+  candidate_previous_.at(next) = previous;
+  candidate_next_.at(image_position) = image_position;
+  candidate_previous_.at(image_position) = image_position;
+  return true;
+}
+
+imaging::SEIndex imaging::binary::morphology::Transform::u_cardinality()
+    const {
+  return static_cast<imaging::SEIndex>(u_elements_.size());
 }

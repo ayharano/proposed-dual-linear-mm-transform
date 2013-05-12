@@ -22,7 +22,7 @@
 
 #include "border.h"
 #include "naive.h"
-#include "proposed.h"
+#include "matrix.h"
 
 #include "img_2d.h"
 #include "test.h"
@@ -138,7 +138,8 @@ int tester(
   std::vector< imaging::ImagePositionIndex >
       *algorithm_remove_candidate_memory_access_counter = NULL;
   std::vector<int> background;
-  imaging::binary::morphology::Border border(debug, debug_output);
+  imaging::binary::morphology::BorderDilation borderD(debug, debug_output);
+  imaging::binary::morphology::BorderErosion borderE(debug, debug_output);
   imaging::grayscale::Image *current_output = NULL;
   imaging::binary::StructuringElement *current_se = NULL;
   std::vector<std::string>::const_iterator current_string;
@@ -157,7 +158,8 @@ int tester(
       insert_new_candidate_comparison_counter;
   std::vector< std::vector< imaging::ImagePositionIndex >* >
       insert_new_candidate_memory_access_counter;
-  imaging::binary::morphology::Naive naive(debug, debug_output);
+  imaging::binary::morphology::NaiveDilation naiveD(debug, debug_output);
+  imaging::binary::morphology::NaiveErosion naiveE(debug, debug_output);
   int input_background = 0;
   int input_foreground = 0;
   bool iterate_for_save_or_info = true;
@@ -172,7 +174,8 @@ int tester(
   FILE *output_counter_data_file = NULL;
   int output_position_value = 0;
   bool position_value = true;
-  imaging::binary::morphology::Proposed proposed(debug, debug_output);
+  imaging::binary::morphology::MatrixDilation matrixD(debug, debug_output);
+  imaging::binary::morphology::MatrixErosion matrixE(debug, debug_output);
   std::vector< std::vector< imaging::ImagePositionIndex >* >
       remove_candidate_comparison_counter;
   std::vector< std::vector< imaging::ImagePositionIndex >* >
@@ -301,7 +304,7 @@ int tester(
       algorithm_number_of_elements_in_border->clear();
       switch (i%(total_algorithms/2)) {
         case 0:  if (true_for_erosion) {
-                   ok_so_far = naive.ErosionTransform(*image, actual_se,
+                   ok_so_far = naiveE.Calculate(*image, actual_se,
                        &current_output,
                        algorithm_determinate_border_comparison_counter,
                        algorithm_insert_new_candidate_comparison_counter,
@@ -311,7 +314,7 @@ int tester(
                        algorithm_number_of_elements_in_border,
                        &start, &end);
                  } else {
-                   ok_so_far = naive.DilationTransform(*image, actual_se,
+                   ok_so_far = naiveD.Calculate(*image, actual_se,
                        &current_output,
                        algorithm_determinate_border_comparison_counter,
                        algorithm_insert_new_candidate_comparison_counter,
@@ -323,7 +326,7 @@ int tester(
                  }
                  break;
         case 1:  if (true_for_erosion) {
-                   ok_so_far = border.ErosionTransform(*image, actual_se,
+                   ok_so_far = borderE.Calculate(*image, actual_se,
                        &current_output,
                        algorithm_determinate_border_comparison_counter,
                        algorithm_insert_new_candidate_comparison_counter,
@@ -333,7 +336,7 @@ int tester(
                        algorithm_number_of_elements_in_border,
                        &start, &end);
                  } else {
-                   ok_so_far = border.DilationTransform(*image, actual_se,
+                   ok_so_far = borderD.Calculate(*image, actual_se,
                        &current_output,
                        algorithm_determinate_border_comparison_counter,
                        algorithm_insert_new_candidate_comparison_counter,
@@ -345,7 +348,7 @@ int tester(
                  }
                  break;
         case 2:  if (true_for_erosion) {
-                   ok_so_far = proposed.ErosionTransform(*image, actual_se,
+                   ok_so_far = matrixE.Calculate(*image, actual_se,
                        &current_output,
                        algorithm_determinate_border_comparison_counter,
                        algorithm_insert_new_candidate_comparison_counter,
@@ -355,7 +358,7 @@ int tester(
                        algorithm_number_of_elements_in_border,
                        &start, &end);
                  } else {
-                   ok_so_far = proposed.DilationTransform(*image, actual_se,
+                   ok_so_far = matrixD.Calculate(*image, actual_se,
                        &current_output,
                        algorithm_determinate_border_comparison_counter,
                        algorithm_insert_new_candidate_comparison_counter,
@@ -417,7 +420,7 @@ int tester(
                  break;
         case 1:  suffix += "border";
                  break;
-        case 2:  suffix += "proposed";
+        case 2:  suffix += "matrix";
                  break;
         default: break;
       }
@@ -580,7 +583,7 @@ int tester(
                  break;
         case 1:  suffix += "border";
                  break;
-        case 2:  suffix += "proposed";
+        case 2:  suffix += "matrix";
                  break;
         default: break;
       }
@@ -790,10 +793,10 @@ int main(int argc, const char* argv[]) {
           "\t\talgorithms: select algorithms using an integer\n"
           "\t\t\t\tbit 0 : naive erosion\n"
           "\t\t\t\tbit 1 : border erosion\n"
-          "\t\t\t\tbit 2 : proposed erosion\n"
+          "\t\t\t\tbit 2 : matrix erosion\n"
           "\t\t\t\tbit 3 : naive dilation\n"
           "\t\t\t\tbit 4 : border dilation\n"
-          "\t\t\t\tbit 5 : proposed dilation\n",
+          "\t\t\t\tbit 5 : matrix dilation\n",
           argv[0]);
   const int optional = 4;
   const int required = 5;

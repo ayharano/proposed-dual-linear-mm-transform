@@ -292,10 +292,11 @@ class Image : public StructuringElement {
 
 namespace morphology {
 
-class DualOperation {
+
+class Transform {
  public:
-  DualOperation(const bool use_candidate_matrix, const bool regular_removal,
-      const bool debug, std::ostream &debug_output)
+  Transform(const bool true_for_erosion, const bool use_candidate_matrix,
+      const bool regular_removal, const bool debug, std::ostream &debug_output)
       : algorithm_determinate_border_comparison_counter_(NULL),
         algorithm_insert_new_candidate_comparison_counter_(NULL),
         algorithm_insert_new_candidate_memory_access_counter_(NULL),
@@ -305,9 +306,10 @@ class DualOperation {
         border_counter_(0), candidate_matrix_(NULL), debug_(debug),
         debug_output_(debug_output), se_iteration_(0), Y_(NULL),
         regular_removal_(regular_removal),
+        true_for_erosion_(true_for_erosion),
         use_candidate_matrix_(use_candidate_matrix) {}
-  virtual ~DualOperation();
-  bool DilationTransform(const imaging::binary::Image &image,
+  virtual ~Transform();
+  bool Calculate(const imaging::binary::Image &image,
       const std::vector<imaging::binary::StructuringElement*> &se,
       imaging::grayscale::Image **output,
       std::vector<imaging::ImagePositionIndex>
@@ -323,37 +325,24 @@ class DualOperation {
       std::vector<imaging::ImagePositionIndex>
           *algorithm_number_of_elements_in_border,
        double *start, double *end);
-  bool ErosionTransform(const imaging::binary::Image &image,
-      const std::vector<imaging::binary::StructuringElement*> &se,
-      imaging::grayscale::Image **output,
-      std::vector<imaging::ImagePositionIndex>
-          *algorithm_determinate_border_comparison_counter,
-      std::vector<imaging::ImagePositionIndex>
-          *algorithm_insert_new_candidate_comparison_counter,
-      std::vector<imaging::ImagePositionIndex>
-          *algorithm_insert_new_candidate_memory_access_counter,
-      std::vector<imaging::ImagePositionIndex>
-          *algorithm_remove_candidate_comparison_counter,
-      std::vector<imaging::ImagePositionIndex>
-          *algorithm_remove_candidate_memory_access_counter,
-      std::vector<imaging::ImagePositionIndex>
-          *algorithm_number_of_elements_in_border,
-      double *start, double *end);
  protected:
+  bool ActualAlgorithm(imaging::grayscale::Image **output_image);
   virtual bool clear();
   virtual bool CustomInitialize();
   virtual bool Debug();
   virtual bool DetectBorder(
-      const bool true_for_erosion,
       const imaging::SEIndex current_se_index,
       const std::vector<imaging::ImagePositionIndex> &current_se_indexes) = 0;
   bool EnqueueCandidateNode(const imaging::ImagePositionIndex &position);
+  bool InitializeCandidateData(const imaging::binary::Image &image);
   virtual bool InitialCandidatePositionFound(
-      const bool true_for_erosion,
       const imaging::binary::Image &image,
       const imaging::ImagePositionIndex &image_position,
       const imaging::Position &value) = 0;
-  virtual bool InsertNewCandidateFromBorder(const bool true_for_erosion,
+  bool InitializeCounters();
+  bool InitializeSEData(
+      const std::vector< std::vector<imaging::Position> > &vectorized_se);
+  virtual bool InsertNewCandidateFromBorder(
       imaging::grayscale::Image **output_image) = 0;
   bool position(const imaging::Position &image_position,
       imaging::ImagePositionIndex *value) const;
@@ -362,6 +351,7 @@ class DualOperation {
   virtual bool RemoveCandidateNode(
       const imaging::ImagePositionIndex &image_position);
   imaging::SEIndex u_cardinality() const;
+
 
   std::vector<imaging::ImagePositionIndex>
       *algorithm_determinate_border_comparison_counter_;
@@ -391,7 +381,7 @@ class DualOperation {
   std::vector<imaging::Position> u_elements_;
   imaging::binary::Image* Y_;
  private:
-  DualOperation()
+  Transform()
       : algorithm_determinate_border_comparison_counter_(NULL),
         algorithm_insert_new_candidate_comparison_counter_(NULL),
         algorithm_insert_new_candidate_memory_access_counter_(NULL),
@@ -400,39 +390,60 @@ class DualOperation {
         algorithm_number_of_elements_in_border_(NULL),
         border_counter_(0), candidate_matrix_(NULL), debug_(false),
         debug_output_(std::cout), se_iteration_(0), Y_(NULL),
-        regular_removal_(false), use_candidate_matrix_(false) {}
-  bool ActualAlgorithm(
-      const bool true_for_erosion,
-      imaging::grayscale::Image **output_image);
-  bool InitializeCandidateData(
-      const bool true_for_erosion,
-      const imaging::binary::Image &image);
-  bool InitializeCounters();
-  bool InitializeSEData(
-      const std::vector< std::vector<imaging::Position> > &vectorized_se);
-  bool Operation(
-      const bool true_for_erosion,
-      const imaging::binary::Image &image,
-      const std::vector<imaging::binary::StructuringElement*> &se,
-      imaging::grayscale::Image **output_image,
-      std::vector<imaging::ImagePositionIndex>
-          *algorithm_determinate_border_comparison_counter,
-      std::vector<imaging::ImagePositionIndex>
-          *algorithm_insert_new_candidate_comparison_counter,
-      std::vector<imaging::ImagePositionIndex>
-          *algorithm_insert_new_candidate_memory_access_counter,
-      std::vector<imaging::ImagePositionIndex>
-          *algorithm_remove_candidate_comparison_counter,
-      std::vector<imaging::ImagePositionIndex>
-          *algorithm_remove_candidate_memory_access_counter,
-      std::vector<imaging::ImagePositionIndex>
-          *algorithm_number_of_elements_in_border,
-      double *start, double *end);
+        regular_removal_(false), true_for_erosion_(true),
+        use_candidate_matrix_(false) {}
 
   bool regular_removal_;
+  bool true_for_erosion_;
   bool use_candidate_matrix_;
-  DISALLOW_COPY_AND_ASSIGN(DualOperation);
-}; // imaging::binary::morphology::DualOperation
+  DISALLOW_COPY_AND_ASSIGN(Transform);
+}; // imaging::binary::morphology::Transform
+
+
+class DilationTransform : public Transform {
+ public:
+  DilationTransform(const bool use_candidate_matrix, const bool regular_removal,
+      const bool debug, std::ostream &debug_output)
+      : Transform(false, use_candidate_matrix, regular_removal, debug,
+        debug_output) {}
+  virtual ~DilationTransform() {}
+ protected:
+  virtual bool DetectBorder(
+      const imaging::SEIndex current_se_index,
+      const std::vector<imaging::ImagePositionIndex> &current_se_indexes) = 0;
+  virtual bool InitialCandidatePositionFound(
+      const imaging::binary::Image &image,
+      const imaging::ImagePositionIndex &image_position,
+      const imaging::Position &value) = 0;
+  virtual bool InsertNewCandidateFromBorder(
+      imaging::grayscale::Image **output_image) = 0;
+ private:
+  DilationTransform() : Transform(false, false, true, true, std::cout) {}
+  DISALLOW_COPY_AND_ASSIGN(DilationTransform);
+}; // imaging:::binary::morphology::DilationTransform
+
+
+class ErosionTransform : public Transform {
+ public:
+  ErosionTransform(const bool use_candidate_matrix, const bool regular_removal,
+      const bool debug, std::ostream &debug_output)
+      : Transform(true, use_candidate_matrix, regular_removal, debug,
+        debug_output) {}
+  virtual ~ErosionTransform() {}
+ protected:
+  virtual bool DetectBorder(
+      const imaging::SEIndex current_se_index,
+      const std::vector<imaging::ImagePositionIndex> &current_se_indexes) = 0;
+  virtual bool InitialCandidatePositionFound(
+      const imaging::binary::Image &image,
+      const imaging::ImagePositionIndex &image_position,
+      const imaging::Position &value) = 0;
+  virtual bool InsertNewCandidateFromBorder(
+      imaging::grayscale::Image **output_image) = 0;
+ private:
+  ErosionTransform() : Transform(true, false, true, true, std::cout) {}
+  DISALLOW_COPY_AND_ASSIGN(ErosionTransform);
+}; // imaging:::binary::morphology::ErosionTransform
 
 
 } // namespace imaging::binary::morphology

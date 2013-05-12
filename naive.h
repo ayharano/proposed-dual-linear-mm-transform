@@ -31,27 +31,46 @@ namespace binary {
 namespace morphology {
 
 
-class Naive : public DualOperation {
+class NaiveDilation : public DilationTransform {
  public:
-  Naive(const bool debug, std::ostream &debug_output)
-      : DualOperation(false, true, debug, debug_output) {}
-  virtual ~Naive() {}
+  NaiveDilation(const bool debug, std::ostream &debug_output)
+      : DilationTransform(false, true, debug, debug_output) {}
+  virtual ~NaiveDilation() {}
  protected:
   virtual bool DetectBorder(
-      const bool true_for_erosion,
       const imaging::SEIndex current_se_index,
       const std::vector<imaging::ImagePositionIndex> &current_se_indexes);
   virtual bool InitialCandidatePositionFound(
-      const bool true_for_erosion,
       const imaging::binary::Image &image,
       const imaging::ImagePositionIndex &image_position,
       const imaging::Position &value);
-  virtual bool InsertNewCandidateFromBorder(const bool true_for_erosion,
+  virtual bool InsertNewCandidateFromBorder(
       imaging::grayscale::Image **output_image);
  private:
-  Naive() : DualOperation(true, false, false, std::cout) {}
-  DISALLOW_COPY_AND_ASSIGN(Naive);
-}; // imaging:::binary::morphology::Naive
+  NaiveDilation() : DilationTransform(true, false, false, std::cout) {}
+  DISALLOW_COPY_AND_ASSIGN(NaiveDilation);
+}; // imaging:::binary::morphology::NaiveDilation
+
+
+class NaiveErosion : public ErosionTransform {
+ public:
+  NaiveErosion(const bool debug, std::ostream &debug_output)
+      : ErosionTransform(false, true, debug, debug_output) {}
+  virtual ~NaiveErosion() {}
+ protected:
+  virtual bool DetectBorder(
+      const imaging::SEIndex current_se_index,
+      const std::vector<imaging::ImagePositionIndex> &current_se_indexes);
+  virtual bool InitialCandidatePositionFound(
+      const imaging::binary::Image &image,
+      const imaging::ImagePositionIndex &image_position,
+      const imaging::Position &value);
+  virtual bool InsertNewCandidateFromBorder(
+      imaging::grayscale::Image **output_image);
+ private:
+  NaiveErosion() : ErosionTransform(true, false, false, std::cout) {}
+  DISALLOW_COPY_AND_ASSIGN(NaiveErosion);
+}; // imaging:::binary::morphology::NaiveErosion
 
 
 } // namespace imaging::binary::morphology

@@ -16,7 +16,7 @@ else
 endif
 
 OBJDIR := $(DESTDIR)
-OBJS := $(addprefix $(OBJDIR)/,img.$(mode).o naive.$(mode).o border.$(mode).o proposed.$(mode).o img_2d.$(mode).o test.$(mode).o)
+OBJS := $(addprefix $(OBJDIR)/,img.$(mode).o naive.$(mode).o border.$(mode).o matrix.$(mode).o img_2d.$(mode).o test.$(mode).o)
 
 .PHONY: all
 
