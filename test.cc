@@ -139,11 +139,10 @@ int tester(
   std::vector< imaging::ImagePositionIndex >
       *algorithm_remove_candidate_memory_access_counter = NULL;
   std::vector<int> background;
-  imaging::binary::morphology::BorderDilation borderD(debug, debug_output);
-  imaging::binary::morphology::BorderErosion borderE(debug, debug_output);
   imaging::grayscale::Image *current_output = NULL;
   imaging::binary::StructuringElement *current_se = NULL;
   std::vector<std::string>::const_iterator current_string;
+  imaging::binary::morphology::Transform *current_transform = NULL;
   std::vector<std::string> data_counter_variable_name;
   int delta = 0;
   std::vector< std::vector< imaging::ImagePositionIndex >* >
@@ -159,8 +158,6 @@ int tester(
       insert_new_candidate_comparison_counter;
   std::vector< std::vector< imaging::ImagePositionIndex >* >
       insert_new_candidate_memory_access_counter;
-  imaging::binary::morphology::NaiveDilation naiveD(debug, debug_output);
-  imaging::binary::morphology::NaiveErosion naiveE(debug, debug_output);
   int input_background = 0;
   int input_foreground = 0;
   bool iterate_for_save_or_info = true;
@@ -175,8 +172,6 @@ int tester(
   FILE *output_counter_data_file = NULL;
   int output_position_value = 0;
   bool position_value = true;
-  imaging::binary::morphology::MatrixDilation matrixD(debug, debug_output);
-  imaging::binary::morphology::MatrixErosion matrixE(debug, debug_output);
   std::vector< std::vector< imaging::ImagePositionIndex >* >
       remove_candidate_comparison_counter;
   std::vector< std::vector< imaging::ImagePositionIndex >* >
@@ -308,76 +303,63 @@ int tester(
       algorithm_remove_candidate_comparison_counter->clear();
       algorithm_remove_candidate_memory_access_counter->clear();
       algorithm_number_of_elements_in_border->clear();
+      if (current_transform != NULL) {
+        ok_so_far = false;
+        continue;
+      }
       switch (i%(total_algorithms/2)) {
         case 0:  if (true_for_erosion) {
-                   ok_so_far = naiveE.Calculate(*image, actual_se,
-                       &current_output,
-                       algorithm_determinate_border_comparison_counter,
-                       algorithm_insert_new_candidate_comparison_counter,
-                       algorithm_insert_new_candidate_memory_access_counter,
-                       algorithm_remove_candidate_comparison_counter,
-                       algorithm_remove_candidate_memory_access_counter,
-                       algorithm_number_of_elements_in_border,
-                       &start, &end);
+                   current_transform = new imaging::binary::morphology::NaiveErosion(debug, debug_output);
+                   if (current_transform == NULL) {
+                    ok_so_far = false;
+                    continue;
+                   }
                  } else {
-                   ok_so_far = naiveD.Calculate(*image, actual_se,
-                       &current_output,
-                       algorithm_determinate_border_comparison_counter,
-                       algorithm_insert_new_candidate_comparison_counter,
-                       algorithm_insert_new_candidate_memory_access_counter,
-                       algorithm_remove_candidate_comparison_counter,
-                       algorithm_remove_candidate_memory_access_counter,
-                       algorithm_number_of_elements_in_border,
-                       &start, &end);
+                   current_transform = new imaging::binary::morphology::NaiveDilation(debug, debug_output);
+                   if (current_transform == NULL) {
+                    ok_so_far = false;
+                    continue;
+                   }                  
                  }
                  break;
         case 1:  if (true_for_erosion) {
-                   ok_so_far = borderE.Calculate(*image, actual_se,
-                       &current_output,
-                       algorithm_determinate_border_comparison_counter,
-                       algorithm_insert_new_candidate_comparison_counter,
-                       algorithm_insert_new_candidate_memory_access_counter,
-                       algorithm_remove_candidate_comparison_counter,
-                       algorithm_remove_candidate_memory_access_counter,
-                       algorithm_number_of_elements_in_border,
-                       &start, &end);
+                   current_transform = new imaging::binary::morphology::BorderErosion(debug, debug_output);
+                   if (current_transform == NULL) {
+                    ok_so_far = false;
+                    continue;
+                   }
                  } else {
-                   ok_so_far = borderD.Calculate(*image, actual_se,
-                       &current_output,
-                       algorithm_determinate_border_comparison_counter,
-                       algorithm_insert_new_candidate_comparison_counter,
-                       algorithm_insert_new_candidate_memory_access_counter,
-                       algorithm_remove_candidate_comparison_counter,
-                       algorithm_remove_candidate_memory_access_counter,
-                       algorithm_number_of_elements_in_border,
-                       &start, &end);
+                   current_transform = new imaging::binary::morphology::BorderDilation(debug, debug_output);
+                   if (current_transform == NULL) {
+                    ok_so_far = false;
+                    continue;
+                   }                  
                  }
                  break;
         case 2:  if (true_for_erosion) {
-                   ok_so_far = matrixE.Calculate(*image, actual_se,
-                       &current_output,
-                       algorithm_determinate_border_comparison_counter,
-                       algorithm_insert_new_candidate_comparison_counter,
-                       algorithm_insert_new_candidate_memory_access_counter,
-                       algorithm_remove_candidate_comparison_counter,
-                       algorithm_remove_candidate_memory_access_counter,
-                       algorithm_number_of_elements_in_border,
-                       &start, &end);
+                   current_transform = new imaging::binary::morphology::MatrixErosion(debug, debug_output);
+                   if (current_transform == NULL) {
+                    ok_so_far = false;
+                    continue;
+                   }
                  } else {
-                   ok_so_far = matrixD.Calculate(*image, actual_se,
-                       &current_output,
-                       algorithm_determinate_border_comparison_counter,
-                       algorithm_insert_new_candidate_comparison_counter,
-                       algorithm_insert_new_candidate_memory_access_counter,
-                       algorithm_remove_candidate_comparison_counter,
-                       algorithm_remove_candidate_memory_access_counter,
-                       algorithm_number_of_elements_in_border,
-                       &start, &end);
+                   current_transform = new imaging::binary::morphology::MatrixDilation(debug, debug_output);
+                   if (current_transform == NULL) {
+                    ok_so_far = false;
+                    continue;
+                   }                  
                  }
                  break;
         default:
                  break;
       }
+      ok_so_far = current_transform->Calculate(*image, actual_se,
+          &current_output, algorithm_determinate_border_comparison_counter,
+          algorithm_insert_new_candidate_comparison_counter,
+          algorithm_insert_new_candidate_memory_access_counter,
+          algorithm_remove_candidate_comparison_counter,
+          algorithm_remove_candidate_memory_access_counter,
+          algorithm_number_of_elements_in_border, &start, &end);
       if (current_output == NULL) ok_so_far = false;
       if (!ok_so_far) {
         result |= 1 << 1;
@@ -404,6 +386,8 @@ int tester(
       algorithm_remove_candidate_memory_access_counter = NULL;
       algorithm_number_of_elements_in_border = NULL;
       times.at(i) = end-start;
+      delete current_transform;
+      current_transform = NULL;
     }
   }
   // Iterate to save output images or to display info, if requested.
