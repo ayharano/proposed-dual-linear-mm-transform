@@ -682,7 +682,7 @@ bool imaging::BoundingBox::LowerUpperInit(
       maximum = minimum;
       minimum = temp;
     }
-    assert(maximum-minimum >= 2*padding);
+    assert(maximum-minimum > 2*padding);
     lower_.set_value(i, minimum);
     upper_.set_value(i, maximum);
     padding_ = padding;
