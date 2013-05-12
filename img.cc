@@ -22,7 +22,7 @@
 #include <sys/time.h>
 
 #include "img.h"
-//#include "shuffle-inl.h"
+#include "shuffle-inl.h"
 
 namespace {
 
@@ -2055,7 +2055,7 @@ bool imaging::binary::morphology::DualOperation::ActualAlgorithm(
         initial_counter_value);
     // Set up data with current values.
     ++se_iteration_;
-//    ok_so_far = shuffle(&se_index); // shuffle SE sequence
+    ok_so_far = shuffle(&se_index); // shuffle SE sequence
     not_done = 0;
     if (debug_) {
       debug_output_ << "\tBefore running iteration " << se_iteration_ << ":\n";
@@ -2076,8 +2076,8 @@ bool imaging::binary::morphology::DualOperation::ActualAlgorithm(
       current_se_index = se_index.at(current_se);
       border_counter_ = 0;
       // Determinate which candidates belongs to current border.
-//      ok_so_far = shuffle(&(shuffled_indexes.at(current_se_index)));
-//      if (!ok_so_far) continue;
+      ok_so_far = shuffle(&(shuffled_indexes.at(current_se_index)));
+      if (!ok_so_far) continue;
       if (debug_) {
         const imaging::ImagePositionIndex se_cardinality
             = se_cardinality_.at(current_se_index);
