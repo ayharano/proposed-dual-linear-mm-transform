@@ -121,6 +121,7 @@ int tester(
     const bool be_verbose,
     const bool do_save,
     const bool image_info,
+    const long seed,
     const int total_algorithms,
     const bool algorithms[]) {
   std::ostream &debug_output = std::cout;
@@ -248,7 +249,12 @@ int tester(
              input_foreground, input_background);
     }
   }
-  srand(time(NULL)); // After setting SEs, set a random seed for rand().
+  if (seed == -1) {
+    // After setting SEs, set a random seed for rand().
+    srand(time(NULL));
+  } else {
+    srand(seed);
+  }
   // Obtain resulting images using selected algorithms.
   for (delta = 0; ok_so_far && delta < 2; ++delta) {
     const bool true_for_erosion = (delta == 0);
@@ -799,7 +805,7 @@ int main(int argc, const char* argv[]) {
           "\t\t\t\tbit 5 : matrix dilation\n",
           argv[0]);
   const int optional = 4;
-  const int required = 5;
+  const int required = 6;
   const int total_algorithms = 6;
   if (optional < 0 || required < 1) return 1;
   if (argc < required+1 || argc > required+optional+1) {
@@ -821,6 +827,7 @@ int main(int argc, const char* argv[]) {
   bool return_value = false;
   const std::string save("-s");
   int se_length = 0;
+  long seed = -1;
   int selected_algorithms = -1;
   const std::string verbose("-v");
 #ifdef DEBUG
@@ -939,12 +946,14 @@ int main(int argc, const char* argv[]) {
   } else {
     srand(0);
   }
-  se_length = atoi(argv[argc-3]);
-  number_of_se = atoi(argv[argc-2]);
-  selected_algorithms = atoi(argv[argc-1]);
+  se_length = atoi(argv[argc-4]);
+  number_of_se = atoi(argv[argc-3]);
+  selected_algorithms = atoi(argv[argc-2]);
+  seed = atoi(argv[argc-1]);
   if (se_length < 2 || se_length > 9 || number_of_se < 1
       || selected_algorithms < 0
-      || selected_algorithms > (1<<total_algorithms)-1) {
+      || selected_algorithms > (1<<total_algorithms)-1
+      || seed < -1) {
     printf("%s", usage_buffer);
     return -1;
   }
@@ -972,6 +981,6 @@ int main(int argc, const char* argv[]) {
     }
   }
   return_value = tester(debug, file_path, counter_data_prefix, number_of_se,
-        be_verbose, do_save, image_info, total_algorithms, algorithms);
+        be_verbose, do_save, image_info, seed, total_algorithms, algorithms);
   return return_value;
 }
