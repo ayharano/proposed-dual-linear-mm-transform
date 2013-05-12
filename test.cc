@@ -263,7 +263,7 @@ int tester(
                    break;
           case 1:  debug_output << "Border";
                    break;
-          case 2:  debug_output << "Proposed";
+          case 2:  debug_output << "Matrix";
                    break;
           default: debug_output << "ERROR";
                    break;
@@ -508,7 +508,7 @@ int tester(
                    break;
           case 1:  printf("Border");
                    break;
-          case 2:  printf("Proposed");
+          case 2:  printf("Matrix");
                    break;
           default: break;
         }
