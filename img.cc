@@ -236,6 +236,7 @@ bool imaging::Position::PlusFactor(const imaging::Position &other, int factor,
 
 imaging::BoundingBox::BoundingBox() {
   modified_ = true;
+  padding_ = 0;
   size_ = NULL;
   size_access_counter_ = 0;
   lower_.SetAsOrigin();
@@ -244,6 +245,7 @@ imaging::BoundingBox::BoundingBox() {
 
 imaging::BoundingBox::BoundingBox(const imaging::BoundingBox &other) {
   modified_ = true;
+  padding_ = other.padding_;
   size_ = NULL;
   size_access_counter_ = 0;
   lower_.CopyFrom(other.lower_);
@@ -252,31 +254,23 @@ imaging::BoundingBox::BoundingBox(const imaging::BoundingBox &other) {
 
 imaging::BoundingBox::BoundingBox(const imaging::Position &lower,
                                   const imaging::Position &upper) {
-  char i = 0;
-  long maximum = 0;
-  long minimum = 0;
-  const char n = imaging::Dimension::number();
-  bool ok_so_far = true;
-  long temp = 0;
   modified_ = true;
   size_ = NULL;
   size_access_counter_ = 0;
   lower_.SetAsOrigin();
   upper_.SetAsOrigin();
-  assert(n > 0);
-  for (i = 0; ok_so_far && i < n; ++i) {
-    ok_so_far = lower.value(i, &minimum);
-    if (!ok_so_far) continue;
-    ok_so_far = upper.value(i, &maximum);
-    if (!ok_so_far) continue;
-    if (minimum > maximum) {
-      temp = maximum;
-      maximum = minimum;
-      minimum = temp;
-    }
-    lower_.set_value(i, minimum);
-    upper_.set_value(i, maximum);
-  }
+  this->LowerUpperInit(lower, upper, 0);
+}
+
+imaging::BoundingBox::BoundingBox(const imaging::Position &lower,
+                                  const imaging::Position &upper,
+                                  const long padding) {
+  modified_ = true;
+  size_ = NULL;
+  size_access_counter_ = 0;
+  lower_.SetAsOrigin();
+  upper_.SetAsOrigin();
+  this->LowerUpperInit(lower, upper, padding);
 }
 
 imaging::BoundingBox::~BoundingBox() {
@@ -356,6 +350,7 @@ bool imaging::BoundingBox::Expand(const imaging::BoundingBox &other) {
       modified_ = true;
     }
   }
+  if (ok_so_far) padding_ += other.padding_;
   return ok_so_far;
 }
 
@@ -478,6 +473,10 @@ const imaging::Position& imaging::BoundingBox::lower() const {
   return lower_;
 }
 
+long imaging::BoundingBox::padding() const {
+  return padding_;
+}
+
 bool imaging::BoundingBox::ReflectByOrigin(imaging::BoundingBox *result)
     const {
   if (result == NULL) return false;
@@ -598,6 +597,26 @@ bool imaging::BoundingBox::set_lower(const imaging::Position &position) {
   return ok_so_far;
 }
 
+bool imaging::BoundingBox::set_padding(const long value) {
+  char i = 0;
+  long maximum = 0;
+  long minimum = 0;
+  const char n = imaging::Dimension::number();
+  bool ok_so_far = true;
+  if (n < 1) return false;
+  if (value < 0) return false;
+  for (i = 0; ok_so_far && i < n; ++i) {
+    ok_so_far = upper_.value(i, &maximum);
+    if (!ok_so_far) continue;
+    ok_so_far = lower_.value(i, &minimum);
+    if (!ok_so_far) continue;
+    if (maximum-minimum <= 2*value) ok_so_far = false;
+  }
+  if (!ok_so_far) return ok_so_far;
+  modified_ = true;
+  return ok_so_far;
+}
+
 bool imaging::BoundingBox::set_upper(const char index, const long value) {
   long maximum = 0;
   long minimum = 0;
@@ -642,6 +661,35 @@ bool imaging::BoundingBox::set_upper(const imaging::Position &position) {
   return ok_so_far;
 }
 
+bool imaging::BoundingBox::LowerUpperInit(
+    const imaging::Position &lower,
+    const imaging::Position &upper, const long padding) {
+  char i = 0;
+  long maximum = 0;
+  long minimum = 0;
+  const char n = imaging::Dimension::number();
+  bool ok_so_far = true;
+  long temp = 0;
+  assert(n > 0);
+  assert(padding > -1);
+  for (i = 0; ok_so_far && i < n; ++i) {
+    ok_so_far = lower.value(i, &minimum);
+    if (!ok_so_far) continue;
+    ok_so_far = upper.value(i, &maximum);
+    if (!ok_so_far) continue;
+    if (minimum > maximum) {
+      temp = maximum;
+      maximum = minimum;
+      minimum = temp;
+    }
+    assert(maximum-minimum > 2*padding);
+    lower_.set_value(i, minimum);
+    upper_.set_value(i, maximum);
+    padding_ = padding;
+  }
+  return ok_so_far;
+}
+
 bool imaging::BoundingBox::RecalculateSize() const {
   if (!modified_) return true;
   if (size_access_counter_ != 0) return false;
@@ -678,24 +726,11 @@ imaging::Size::Size() {
 }
 
 imaging::Size::Size(imaging::Position size) {
-  char i = 0;
-  const char n = imaging::Dimension::number();
-  imaging::Position one;
-  bool ok_so_far = true;
-  imaging::Position upper;
-  long value = 0;
-  assert(n > 0);
-  for (i = 0; ok_so_far && i < n; ++i) {
-    ok_so_far = one.set_value(i, 1);
-    ok_so_far = size.value(i, &value);
-    if (!ok_so_far) continue;
-    if (value < 1) ok_so_far = false;
-  }
-  if (ok_so_far) {
-    ok_so_far = size.Subtract(one, &upper);
-    if (!ok_so_far) return;
-    this->Expand(BoundingBox(Position(), upper));
-  }
+  PositionPaddingInit(size, 0);
+}
+
+imaging::Size::Size(imaging::Position size, const long padding) {
+  PositionPaddingInit(size, padding);
 }
 
 imaging::Size::Size(const imaging::Size &other) : imaging::BoundingBox(other) {
@@ -738,7 +773,8 @@ bool imaging::Size::CopyFrom(const imaging::BoundingBox &other) {
     if (!ok_so_far) continue;
   }
   if (!ok_so_far) return ok_so_far;
-  return set_lower(lower_position) && set_upper(upper_position);
+  return set_lower(lower_position) && set_upper(upper_position)
+      && set_padding(other.padding());
 }
 
 bool imaging::Size::Expand(const imaging::BoundingBox &other) {
@@ -829,6 +865,28 @@ bool imaging::Size::ReflectByOrigin(imaging::BoundingBox **result)
   *result = new imaging::Size(*this);
   if (*result == NULL) return false;
   return true;
+}
+
+bool imaging::Size::PositionPaddingInit(imaging::Position size,
+    const long padding) {
+  char i = 0;
+  const char n = imaging::Dimension::number();
+  imaging::Position one;
+  bool ok_so_far = true;
+  imaging::Position upper;
+  long value = 0;
+  assert(n > 0);
+  for (i = 0; ok_so_far && i < n; ++i) {
+    ok_so_far = one.set_value(i, 1);
+    if (!ok_so_far) continue;
+    ok_so_far = size.value(i, &value);
+    if (!ok_so_far) continue;
+    if (value < 1) ok_so_far = false;
+  }
+  if (!ok_so_far) return ok_so_far;
+  ok_so_far = size.Subtract(one, &upper);
+  if (!ok_so_far) return ok_so_far;
+  return this->Expand(BoundingBox(Position(), upper, padding));
 }
 
 // imaging::PositionIterator

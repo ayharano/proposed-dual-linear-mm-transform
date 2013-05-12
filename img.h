@@ -77,6 +77,8 @@ class BoundingBox {
   BoundingBox();
   BoundingBox(const BoundingBox &other);
   BoundingBox(const Position &lower, const Position &upper);
+  BoundingBox(const Position &lower, const Position &upper,
+      const long padding);
   virtual ~BoundingBox();
   virtual BoundingBox& operator= (const BoundingBox &other);
   imaging::ImagePositionIndex capacity() const;
@@ -89,6 +91,7 @@ class BoundingBox {
   bool IsValid(const Position &position) const;
   long Length(const char index) const;
   const imaging::Position& lower() const;
+  long padding() const;
   virtual bool ReflectByOrigin(BoundingBox *result) const;
   bool Union(const BoundingBox &other, BoundingBox *result) const;
   const imaging::Position& upper() const;
@@ -96,12 +99,17 @@ class BoundingBox {
  protected:
   bool set_lower(const char index, const long value);
   bool set_lower(const imaging::Position &position);
+  bool set_padding(const long value);
   bool set_upper(const char index, const long value);
   bool set_upper(const imaging::Position &position);
  private:
+  bool LowerUpperInit(const Position &lower, const Position &upper,
+      const long padding);
   bool RecalculateSize() const;
+
   Position lower_;
   mutable bool modified_;
+  long padding_;
   mutable Size *size_;
   mutable int size_access_counter_;
   Position upper_;
@@ -112,6 +120,7 @@ class Size : public BoundingBox {
  public:
   Size();
   Size(Position size);
+  Size(Position size, const long padding);
   Size(const Size &other);
   virtual ~Size() {}
   virtual Size& operator= (const Size &other);
@@ -119,6 +128,8 @@ class Size : public BoundingBox {
   virtual bool Expand(const BoundingBox &other);
   virtual bool Expand(const Position &position);
   virtual bool ReflectByOrigin(BoundingBox **result) const;
+ private:
+  bool PositionPaddingInit(Position size, const long padding);
 }; // imaging::Size
 
 

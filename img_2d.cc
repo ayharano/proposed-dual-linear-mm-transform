@@ -32,18 +32,24 @@ bool bidimensional::LoadBinaryImage(const std::string &file_path,
   unsigned int u_x = 0;
   unsigned int u_y = 0;
   imaging::Position external_upper;
+  long padding = 0;
   Magick::ColorMono value;
   long x = 0;
   long y = 0;
   Magick::Image original_image(file_path);
   // Set image size.
   const long width = static_cast<long>(original_image.columns());
-  ok_so_far = external_upper.set_value(0, width);
-  if (!ok_so_far) return ok_so_far;
   const long height = static_cast<long>(original_image.rows());
-  ok_so_far = external_upper.set_value(1, height);
+  if (width < height) {
+    padding = 2*height;
+  } else {
+    padding = 2*width;
+  }
+  ok_so_far = external_upper.set_value(0, width+2*padding);
   if (!ok_so_far) return ok_so_far;
-  imaging::Size size(external_upper);
+  ok_so_far = external_upper.set_value(1, height+2*padding);
+  if (!ok_so_far) return ok_so_far;
+  imaging::Size size(external_upper, padding);
   imaging::binary::Image output(size, true);
   imaging::PositionIterator iterator(size);
   ok_so_far = iterator.begin();
@@ -95,8 +101,13 @@ bool bidimensional::SaveBinaryImage(const std::string &file_path,
   if (width < 1) return false;
   const long height = size.Length(1);
   if (height < 1) return false;
-  Magick::Geometry magick_size(static_cast<size_t>(pixel_size*width),
-                               static_cast<size_t>(pixel_size*height));
+  const long padding = size.padding();
+  if (padding < 0) return false;
+  if (2*padding >= width) return false;
+  if (2*padding >= height) return false;
+  Magick::Geometry magick_size(
+      static_cast<size_t>(pixel_size*(width-2*padding)),
+      static_cast<size_t>(pixel_size*(height-2*padding)));
   Magick::Image output(magick_size, Magick::ColorMono(false));
   imaging::PositionIterator iterator(size);
   ok_so_far = iterator.begin();
@@ -106,8 +117,10 @@ bool bidimensional::SaveBinaryImage(const std::string &file_path,
     const imaging::Position &p = iterator.value();
     ok_so_far = p.value(0, &x);
     if (!ok_so_far) continue;
+    if (x < padding || x >= width-padding) continue;
     ok_so_far = p.value(1, &y);
     if (!ok_so_far) continue;
+    if (y < padding || y >= height-padding) continue;
     position_value = false;
     ok_so_far = image.value(p, &position_value);
     if (!ok_so_far) continue;
@@ -154,8 +167,13 @@ bool bidimensional::SaveGrayscaleImage(const std::string &file_path,
   if (width < 1) return false;
   const long height = size.Length(1);
   if (height < 1) return false;
-  Magick::Geometry magick_size(static_cast<size_t>(pixel_size*width),
-                               static_cast<size_t>(pixel_size*height));
+  const long padding = size.padding();
+  if (padding < 0) return false;
+  if (2*padding >= width) return false;
+  if (2*padding >= height) return false;
+  Magick::Geometry magick_size(
+      static_cast<size_t>(pixel_size*(width-2*padding)),
+      static_cast<size_t>(pixel_size*(height-2*padding)));
   Magick::Image output(magick_size, Magick::ColorGray(0.));
   imaging::PositionIterator iterator(size);
   ok_so_far = iterator.begin();
@@ -165,8 +183,10 @@ bool bidimensional::SaveGrayscaleImage(const std::string &file_path,
     const imaging::Position &p = iterator.value();
     ok_so_far = p.value(0, &x);
     if (!ok_so_far) continue;
+    if (x < padding || x >= width-padding) continue;
     ok_so_far = p.value(1, &y);
     if (!ok_so_far) continue;
+    if (y < padding || y >= height-padding) continue;
     position_value = 0;
     ok_so_far = image.value(p, &position_value);
     if (!ok_so_far) continue;
