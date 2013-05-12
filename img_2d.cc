@@ -32,6 +32,7 @@ bool bidimensional::LoadBinaryImage(const std::string &file_path,
   unsigned int u_x = 0;
   unsigned int u_y = 0;
   imaging::Position external_upper;
+  imaging::Position padded_p;
   long padding = 0;
   Magick::ColorMono value;
   long x = 0;
@@ -65,7 +66,11 @@ bool bidimensional::LoadBinaryImage(const std::string &file_path,
     u_y = static_cast<unsigned int>(y);
     value = original_image.pixelColor(u_x, u_y);
     position_value = value.mono();
-    ok_so_far = output.set_value(p, position_value);
+    ok_so_far = padded_p.set_value(0, x+padding);
+    if (!ok_so_far) continue;
+    ok_so_far = padded_p.set_value(1, y+padding);
+    if (!ok_so_far) continue;
+    ok_so_far = output.set_value(padded_p, position_value);
     if (!ok_so_far) continue;
   } while (ok_so_far && iterator.iterate());
   if (!iterator.IsFinished()) ok_so_far = false;
