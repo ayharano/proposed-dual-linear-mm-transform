@@ -24,6 +24,8 @@ bool bidimensional::LoadBinaryImage(const std::string &file_path,
                                     imaging::binary::Image **image) {
   if (image == NULL) return false;
   if (*image != NULL) return false;
+  long maximum = 0;
+  long minimum = 0;
   char n = imaging::Dimension::number();
   if (n == 0) n = imaging::Dimension::Set(2);
   if (n != 2) return false;
@@ -42,9 +44,16 @@ bool bidimensional::LoadBinaryImage(const std::string &file_path,
   const long real_width = static_cast<long>(original_image.columns());
   const long real_height = static_cast<long>(original_image.rows());
   if (real_width < real_height) {
-    padding = 3*real_height/2;
+    maximum = real_height;
+    minimum = real_width;
   } else {
-    padding = 3*real_width/2;
+    maximum = real_width;
+    minimum = real_height;
+  }
+  if ((1.*minimum)/(1.*maximum) > .5) {
+    padding = maximum/2;
+  } else {
+    padding = minimum/2;
   }
   ok_so_far = external_upper.set_value(0, real_width+2*padding);
   if (!ok_so_far) return ok_so_far;
