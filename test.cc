@@ -179,6 +179,7 @@ int tester(
   int result = 0;
   double start = 0.;
   std::vector<double> times;
+  imaging::grayscale::Image *unpadded_output = NULL;
   int x = 0;
   int y = 0;
   int width = 0;
@@ -365,8 +366,12 @@ int tester(
         result |= 1 << 1;
         continue;
       }
-      output.at(i) = current_output;
+      unpadded_output = new imaging::grayscale::Image(imaging::Size(), 0);
+      ok_so_far = current_output->UnpaddedImage(unpadded_output);
+      output.at(i) = unpadded_output;
+      delete current_output;
       current_output = NULL;
+      unpadded_output = NULL;
       determinate_border_comparison_counter.at(i) =
           algorithm_determinate_border_comparison_counter;
       insert_new_candidate_comparison_counter.at(i) =

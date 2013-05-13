@@ -212,6 +212,7 @@ class Image {
   bool Print(std::ostream &out) const;
   bool set_value(const imaging::Position &position, const int value);
   const imaging::Size& size() const;
+  bool UnpaddedImage(Image *result) const;
   bool value(const imaging::Position &position, int *value) const;
  protected:
   Image();

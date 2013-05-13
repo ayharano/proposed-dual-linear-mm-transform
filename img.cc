@@ -1308,6 +1308,37 @@ const imaging::Size& imaging::grayscale::Image::size() const {
   return data_.size();
 }
 
+bool imaging::grayscale::Image::UnpaddedImage(
+    imaging::grayscale::Image *result) const {
+  if (result == NULL) return false;
+  char i = 0;
+  long length = 0;
+  bool ok_so_far = true;
+  const long padding = size().padding();
+  int position_value = 0;
+  imaging::Position unpadded_size_as_position;
+  const int N = imaging::Dimension::number();
+  if (N < 1) return false;
+  for (i = 0; ok_so_far && i < N; ++i) {
+    length = this->Length(i);
+    ok_so_far = unpadded_size_as_position.set_value(i, length-2*padding);
+  }
+  imaging::Size unpadded_size(unpadded_size_as_position);
+  imaging::grayscale::Image output(unpadded_size, true);
+  imaging::PositionIterator iterator(unpadded_size);
+  if (ok_so_far) ok_so_far = iterator.begin();
+  if (!ok_so_far) return ok_so_far;
+  do {
+    ok_so_far = this->value(iterator.value(), &position_value);
+    if (!ok_so_far) continue;
+    ok_so_far = output.set_value(iterator.value(), position_value);
+  } while (ok_so_far && iterator.iterate());
+  if (!iterator.IsFinished()) ok_so_far = false;
+  if (!ok_so_far) return ok_so_far;
+  ok_so_far = result->CopyFrom(output);
+  return ok_so_far;
+}
+
 bool imaging::grayscale::Image::value(
     const imaging::Position &position, int *value) const {
   if (value == NULL) return false;
