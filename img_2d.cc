@@ -130,9 +130,9 @@ bool bidimensional::SaveBinaryImage(const std::string &file_path,
     if (!position_value) continue;
     color.mono(position_value);
     for (d_x = 0; d_x < pixel_size; ++d_x) {
-      u_x = static_cast<unsigned int>(pixel_size*x+d_x);
+      u_x = static_cast<unsigned int>(pixel_size*(x-padding)+d_x);
       for (d_y = 0; d_y < pixel_size; ++d_y) {
-        u_y = static_cast<unsigned int>(pixel_size*y+d_y);
+        u_y = static_cast<unsigned int>(pixel_size*(y-padding)+d_y);
         output.pixelColor(u_x, u_y, color);
       }
     }
@@ -196,9 +196,9 @@ bool bidimensional::SaveGrayscaleImage(const std::string &file_path,
     ++position_value; // adjustment of pixel level
     color.shade((1.*position_value)/(1.*(levels-1)));
     for (d_x = 0; d_x < pixel_size; ++d_x) {
-      u_x = static_cast<unsigned int>(pixel_size*x+d_x);
+      u_x = static_cast<unsigned int>(pixel_size*(x-padding)+d_x);
       for (d_y = 0; d_y < pixel_size; ++d_y) {
-        u_y = static_cast<unsigned int>(pixel_size*y+d_y);
+        u_y = static_cast<unsigned int>(pixel_size*(y-padding)+d_y);
         output.pixelColor(u_x, u_y, color);
       }
     }
