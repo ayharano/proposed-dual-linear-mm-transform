@@ -790,7 +790,7 @@ int main(int argc, const char* argv[]) {
   sprintf(usage_buffer,
           "usage: '%s' [-i] [-r] [-s] [-v]"
           " image_file_path counter_file_prefix"
-          " se_length number_of_se algorithms\n"
+          " se_length number_of_se algorithms seed\n"
           "\tOptional:\n"
           "\t\t-i: image information\n"
           "\t\t-r: randomize SEs\n"
@@ -809,7 +809,9 @@ int main(int argc, const char* argv[]) {
           "\t\t\t\tbit 2 : matrix erosion\n"
           "\t\t\t\tbit 3 : naive dilation\n"
           "\t\t\t\tbit 4 : border dilation\n"
-          "\t\t\t\tbit 5 : matrix dilation\n",
+          "\t\t\t\tbit 5 : matrix dilation\n"
+          "\t\tseed: select seed for random ordering of arrays, "
+          "-1 to use time for seed\n",
           argv[0]);
   const int optional = 4;
   const int required = 6;
