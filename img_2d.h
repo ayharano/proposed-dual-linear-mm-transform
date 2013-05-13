@@ -26,7 +26,8 @@
 namespace bidimensional {
 
   bool LoadBinaryImage(const std::string &file_path,
-                       imaging::binary::Image **image);
+                       imaging::binary::Image **image_d,
+                       imaging::binary::Image **image_e);
 
   bool SaveBinaryImage(const std::string &file_path,
                        const imaging::binary::Image &image);

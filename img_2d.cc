@@ -21,9 +21,10 @@
 #include "img_2d.h"
 
 bool bidimensional::LoadBinaryImage(const std::string &file_path,
-                                    imaging::binary::Image **image) {
-  if (image == NULL) return false;
-  if (*image != NULL) return false;
+                                    imaging::binary::Image **image_d,
+                                    imaging::binary::Image **image_e) {
+  if (image_d == NULL || image_e == NULL) return false;
+  if (*image_d != NULL || *image_e != NULL) return false;
   long maximum = 0;
   long minimum = 0;
   char n = imaging::Dimension::number();
@@ -33,8 +34,10 @@ bool bidimensional::LoadBinaryImage(const std::string &file_path,
   bool position_value = true;
   unsigned long u_x = 0;
   unsigned long u_y = 0;
-  imaging::Position external_upper;
+  imaging::Position external_upper_d;
+  imaging::Position external_upper_e;
   imaging::Position p;
+  imaging::Position position_d;
   long padding = 0;
   Magick::ColorMono value;
   long x = 0;
@@ -51,19 +54,23 @@ bool bidimensional::LoadBinaryImage(const std::string &file_path,
     minimum = real_height;
   }
   if ((1.*minimum)/(1.*maximum) > .5) {
-    padding = maximum/2;
+    padding = maximum/8;
   } else {
-    padding = minimum/2;
+    padding = minimum/8;
   }
-  ok_so_far = external_upper.set_value(0, real_width+2*padding);
+  ok_so_far = external_upper_d.set_value(0, real_width+2*padding);
   if (!ok_so_far) return ok_so_far;
-  ok_so_far = external_upper.set_value(1, real_height+2*padding);
+  ok_so_far = external_upper_d.set_value(1, real_height+2*padding);
   if (!ok_so_far) return ok_so_far;
-  ok_so_far = external_upper.value(0, &x);
-  ok_so_far = external_upper.value(1, &y);
-  imaging::Size size(external_upper, padding);
-  imaging::binary::Image output(size, true);
-  imaging::PositionIterator iterator(size);
+  ok_so_far = external_upper_e.set_value(0, real_width);
+  if (!ok_so_far) return ok_so_far;
+  ok_so_far = external_upper_e.set_value(1, real_height);
+  if (!ok_so_far) return ok_so_far;
+  imaging::Size size_d(external_upper_d, padding);
+  imaging::Size size_e(external_upper_e);
+  imaging::binary::Image output_d(size_d, true);
+  imaging::binary::Image output_e(size_e, true);
+  imaging::PositionIterator iterator(size_e);
   ok_so_far = iterator.begin();
   if (!ok_so_far) return ok_so_far;
   // Copy image data.
@@ -71,21 +78,27 @@ bool bidimensional::LoadBinaryImage(const std::string &file_path,
     const imaging::Position &p = iterator.value();
     ok_so_far = p.value(0, &x);
     if (!ok_so_far) continue;
-    if (x < padding || x > real_width+padding) continue;
     ok_so_far = p.value(1, &y);
     if (!ok_so_far) continue;
-    if (y < padding || y > real_height+padding) continue;
-    u_x = static_cast<unsigned long>(x-padding);
-    u_y = static_cast<unsigned long>(y-padding);
+    u_x = static_cast<unsigned long>(x);
+    u_y = static_cast<unsigned long>(y);
     value = original_image.pixelColor(u_x, u_y);
     position_value = value.mono();
-    ok_so_far = output.set_value(p, position_value);
+    if (!position_value) continue;
+    ok_so_far = output_e.set_value(p, position_value);
     if (!ok_so_far) continue;
+    ok_so_far = position_d.set_value(0, x+padding);
+    if (!ok_so_far) continue;
+    ok_so_far = position_d.set_value(1, y+padding);
+    if (!ok_so_far) continue;
+    ok_so_far = output_d.set_value(position_d, position_value);
   } while (ok_so_far && iterator.iterate());
   if (!iterator.IsFinished()) ok_so_far = false;
   if (!ok_so_far) return ok_so_far;
-  *image = new imaging::binary::Image(output);
-  if (*image == NULL) return false;
+  *image_d = new imaging::binary::Image(output_d);
+  if (*image_d == NULL) return false;
+  *image_e = new imaging::binary::Image(output_e);
+  if (*image_e == NULL) return false;
   return ok_so_far;
 }
 

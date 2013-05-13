@@ -154,6 +154,8 @@ int tester(
   int i = 0;
   int i_se = 0;
   imaging::binary::Image *image = NULL;
+  imaging::binary::Image *image_d = NULL;
+  imaging::binary::Image *image_e = NULL;
   std::vector< std::vector< imaging::ImagePositionIndex >* >
       insert_new_candidate_comparison_counter;
   std::vector< std::vector< imaging::ImagePositionIndex >* >
@@ -207,15 +209,17 @@ int tester(
     actual_se.push_back(current_se);
     current_se = NULL;
   }
-  ok_so_far = bidimensional::LoadBinaryImage(file_path, &image);
-  if (!ok_so_far || image == NULL) return -2;
+  ok_so_far = bidimensional::LoadBinaryImage(file_path, &image_d, &image_e);
+  if (!ok_so_far || image_d == NULL) return -2;
   if (do_save) {
-    ok_so_far = bidimensional::SaveBinaryImage(file_path+".input.png", *image);
-    if (!ok_so_far || image == NULL) return -3;
+    ok_so_far = bidimensional::SaveBinaryImage(file_path+".input_d.png", *image_d);
+    if (!ok_so_far || image_d == NULL) return -3;
+    ok_so_far = bidimensional::SaveBinaryImage(file_path+".input_e.png", *image_e);
+    if (!ok_so_far || image_e == NULL) return -3;
   }
-  width = image->Length(0);
+  width = image_e->Length(0);
   if (width < 1) return -4;
-  height = image->Length(1);
+  height = image_e->Length(1);
   if (height < 1) return -4;
   if (image_info) {
     for (x = 0; ok_so_far && x < width; ++x) {
@@ -224,7 +228,7 @@ int tester(
       for (y = 0; ok_so_far && y < height; ++y) {
         ok_so_far = (::p)->set_value(1, y);
         if (!ok_so_far) continue;
-        ok_so_far = image->value(*(::p), &position_value);
+        ok_so_far = image_e->value(*(::p), &position_value);
         if (!ok_so_far) continue;
         if (position_value) {
           ++input_foreground;
@@ -354,6 +358,11 @@ int tester(
         default:
                  break;
       }
+      if (true_for_erosion) {
+        image = image_e;
+      } else {
+        image = image_d;
+      }
       ok_so_far = current_transform->Calculate(*image, actual_se,
           &current_output, algorithm_determinate_border_comparison_counter,
           algorithm_insert_new_candidate_comparison_counter,
@@ -366,6 +375,7 @@ int tester(
         result |= 1 << 1;
         continue;
       }
+      image = NULL;
       unpadded_output = new imaging::grayscale::Image(imaging::Size(), 0);
       ok_so_far = current_output->UnpaddedImage(unpadded_output);
       output.at(i) = unpadded_output;
@@ -742,6 +752,14 @@ int tester(
     }
   }
   // Cleaning up 'image' data.
+  if (image_e != NULL) {
+    delete image_e;
+    image_e = NULL;
+  }
+  if (image_d != NULL) {
+    delete image_d;
+    image_d = NULL;
+  }
   if (image != NULL) {
     delete image;
     image = NULL;
