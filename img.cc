@@ -1311,9 +1311,11 @@ const imaging::Size& imaging::grayscale::Image::size() const {
 bool imaging::grayscale::Image::UnpaddedImage(
     imaging::grayscale::Image *result) const {
   if (result == NULL) return false;
+  long coordinate = 0;
   char i = 0;
   long length = 0;
   bool ok_so_far = true;
+  imaging::Position padded_position;
   const long padding = size().padding();
   int position_value = 0;
   imaging::Position unpadded_size_as_position;
@@ -1329,7 +1331,12 @@ bool imaging::grayscale::Image::UnpaddedImage(
   if (ok_so_far) ok_so_far = iterator.begin();
   if (!ok_so_far) return ok_so_far;
   do {
-    ok_so_far = this->value(iterator.value(), &position_value);
+    for (i = 0; ok_so_far && i < N; ++i) {
+      length = iterator.value().value(i, &coordinate);
+      ok_so_far = padded_position.set_value(i, coordinate+padding);
+    }
+    if (!ok_so_far) continue;
+    ok_so_far = this->value(padded_position, &position_value);
     if (!ok_so_far) continue;
     ok_so_far = output.set_value(iterator.value(), position_value);
   } while (ok_so_far && iterator.iterate());
