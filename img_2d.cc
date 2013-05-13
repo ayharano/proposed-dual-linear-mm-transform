@@ -29,8 +29,8 @@ bool bidimensional::LoadBinaryImage(const std::string &file_path,
   if (n != 2) return false;
   bool ok_so_far = true;
   bool position_value = true;
-  unsigned int u_x = 0;
-  unsigned int u_y = 0;
+  unsigned long u_x = 0;
+  unsigned long u_y = 0;
   imaging::Position external_upper;
   imaging::Position p;
   long padding = 0;
@@ -39,17 +39,19 @@ bool bidimensional::LoadBinaryImage(const std::string &file_path,
   long y = 0;
   Magick::Image original_image(file_path);
   // Set image size.
-  const long width = static_cast<long>(original_image.columns());
-  const long height = static_cast<long>(original_image.rows());
-  if (width < height) {
-    padding = 2*height;
+  const long real_width = static_cast<long>(original_image.columns());
+  const long real_height = static_cast<long>(original_image.rows());
+  if (real_width < real_height) {
+    padding = 2*real_height;
   } else {
-    padding = 2*width;
+    padding = 2*real_width;
   }
-  ok_so_far = external_upper.set_value(0, width+2*padding);
+  ok_so_far = external_upper.set_value(0, real_width+2*padding);
   if (!ok_so_far) return ok_so_far;
-  ok_so_far = external_upper.set_value(1, height+2*padding);
+  ok_so_far = external_upper.set_value(1, real_height+2*padding);
   if (!ok_so_far) return ok_so_far;
+  ok_so_far = external_upper.value(0, &x);
+  ok_so_far = external_upper.value(1, &y);
   imaging::Size size(external_upper, padding);
   imaging::binary::Image output(size, true);
   imaging::PositionIterator iterator(size);
@@ -60,12 +62,12 @@ bool bidimensional::LoadBinaryImage(const std::string &file_path,
     const imaging::Position &p = iterator.value();
     ok_so_far = p.value(0, &x);
     if (!ok_so_far) continue;
-    if (x < padding || x >= width-padding) continue;
+    if (x < padding || x > real_width+padding) continue;
     ok_so_far = p.value(1, &y);
     if (!ok_so_far) continue;
-    if (y < padding || y >= height-padding) continue;
-    u_x = static_cast<unsigned int>(x-padding);
-    u_y = static_cast<unsigned int>(y-padding);
+    if (y < padding || y > real_height+padding) continue;
+    u_x = static_cast<unsigned long>(x-padding);
+    u_y = static_cast<unsigned long>(y-padding);
     value = original_image.pixelColor(u_x, u_y);
     position_value = value.mono();
     ok_so_far = output.set_value(p, position_value);
@@ -95,8 +97,8 @@ bool bidimensional::SaveBinaryImage(const std::string &file_path,
   long d_y = 0;
   bool ok_so_far = true;
   bool position_value = true;
-  unsigned int u_x = 0;
-  unsigned int u_y = 0;
+  unsigned long u_x = 0;
+  unsigned long u_y = 0;
   long x = 0;
   long y = 0;
   // Get image size.
@@ -120,19 +122,19 @@ bool bidimensional::SaveBinaryImage(const std::string &file_path,
     const imaging::Position &p = iterator.value();
     ok_so_far = p.value(0, &x);
     if (!ok_so_far) continue;
-    if (x < padding || x >= width-padding) continue;
+    if (x < padding || x >= width+padding) continue;
     ok_so_far = p.value(1, &y);
     if (!ok_so_far) continue;
-    if (y < padding || y >= height-padding) continue;
+    if (y < padding || y >= height+padding) continue;
     position_value = false;
     ok_so_far = image.value(p, &position_value);
     if (!ok_so_far) continue;
     if (!position_value) continue;
     color.mono(position_value);
     for (d_x = 0; d_x < pixel_size; ++d_x) {
-      u_x = static_cast<unsigned int>(pixel_size*(x-padding)+d_x);
+      u_x = static_cast<unsigned long>(pixel_size*(x-padding)+d_x);
       for (d_y = 0; d_y < pixel_size; ++d_y) {
-        u_y = static_cast<unsigned int>(pixel_size*(y-padding)+d_y);
+        u_y = static_cast<unsigned long>(pixel_size*(y-padding)+d_y);
         output.pixelColor(u_x, u_y, color);
       }
     }
@@ -161,8 +163,8 @@ bool bidimensional::SaveGrayscaleImage(const std::string &file_path,
   const int levels = 256;
   bool ok_so_far = true;
   int position_value = true;
-  unsigned int u_x = 0;
-  unsigned int u_y = 0;
+  unsigned long u_x = 0;
+  unsigned long u_y = 0;
   long x = 0;
   long y = 0;
   // Get image size.
@@ -186,19 +188,19 @@ bool bidimensional::SaveGrayscaleImage(const std::string &file_path,
     const imaging::Position &p = iterator.value();
     ok_so_far = p.value(0, &x);
     if (!ok_so_far) continue;
-    if (x < padding || x >= width-padding) continue;
+    if (x < padding || x >= width+padding) continue;
     ok_so_far = p.value(1, &y);
     if (!ok_so_far) continue;
-    if (y < padding || y >= height-padding) continue;
+    if (y < padding || y >= height+padding) continue;
     position_value = 0;
     ok_so_far = image.value(p, &position_value);
     if (!ok_so_far) continue;
     ++position_value; // adjustment of pixel level
     color.shade((1.*position_value)/(1.*(levels-1)));
     for (d_x = 0; d_x < pixel_size; ++d_x) {
-      u_x = static_cast<unsigned int>(pixel_size*(x-padding)+d_x);
+      u_x = static_cast<unsigned long>(pixel_size*(x-padding)+d_x);
       for (d_y = 0; d_y < pixel_size; ++d_y) {
-        u_y = static_cast<unsigned int>(pixel_size*(y-padding)+d_y);
+        u_y = static_cast<unsigned long>(pixel_size*(y-padding)+d_y);
         output.pixelColor(u_x, u_y, color);
       }
     }
